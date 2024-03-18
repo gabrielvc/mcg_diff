@@ -1,0 +1,3 @@
+name: super_resolution
+sigma_y: 0.05
+ratio: 16

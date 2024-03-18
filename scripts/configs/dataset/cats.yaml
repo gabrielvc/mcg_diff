@@ -1,0 +1,4 @@
+hf_model_tag: samwit/ddpm-afhq-cats-128
+N_MAX_GPU_MCG_DIFF: 256
+N_MAX_GPU_DDRM: 256
+N_MAX_GPU_DPS: 50

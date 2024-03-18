@@ -154,6 +154,6 @@ sampler = mcg_diff_fun
 dim_y, dim_x = forward_operator.shape
 n_samples = n_samples
 
-n_particles = 128
+n_particles = 32
 initial_samples = torch.randn(size=(n_samples, n_particles, dim_x))
 samples = torch.func.vmap(sampler, in_dims=(0,), randomness='different')(initial_samples)

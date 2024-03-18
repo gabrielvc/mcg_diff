@@ -1,0 +1,4 @@
+hf_model_tag: anton-l/ddpm-ema-flowers-64
+N_MAX_GPU_MCG_DIFF: 2000
+N_MAX_GPU_DDRM: 2000
+N_MAX_GPU_DPS: 200

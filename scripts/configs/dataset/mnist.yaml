@@ -1,0 +1,4 @@
+hf_model_tag: nabdan/mnist_20_epoch
+N_MAX_GPU_MCG_DIFF: 8912
+N_MAX_GPU_DDRM: 8912
+N_MAX_GPU_DPS: 800

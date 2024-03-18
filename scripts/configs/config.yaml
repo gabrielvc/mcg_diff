@@ -1,0 +1,12 @@
+defaults:
+  - _self_
+  - dataset: cifar_10
+  - diffusion: ddim_100
+  - mcg_diff: default
+  - task: super_resolution
+
+save_folder: /mnt/data/gabriel/mcg_diff/images
+seed: 30
+plot: true
+save_fig: false
+save_data: false

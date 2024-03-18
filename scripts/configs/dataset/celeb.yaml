@@ -1,0 +1,4 @@
+hf_model_tag: google/ddpm-ema-celebahq-256
+N_MAX_GPU_MCG_DIFF: 64
+N_MAX_GPU_DDRM: 64
+N_MAX_GPU_DPS: 6

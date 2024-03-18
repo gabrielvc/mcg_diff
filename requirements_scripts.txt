@@ -1,0 +1,4 @@
+matplotlib
+diffusers
+hydra-core
+omegaconf

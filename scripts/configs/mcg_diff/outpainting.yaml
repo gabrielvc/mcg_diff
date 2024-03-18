@@ -1,0 +1,3 @@
+N_total: 100000
+N_particles: 10000
+gaussian_var: 1e-4

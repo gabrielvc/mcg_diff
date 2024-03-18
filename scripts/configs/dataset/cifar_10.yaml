@@ -1,0 +1,4 @@
+hf_model_tag: google/ddpm-cifar10-32
+N_MAX_GPU_MCG_DIFF: 4096
+N_MAX_GPU_DDRM: 4096
+N_MAX_GPU_DPS: 400

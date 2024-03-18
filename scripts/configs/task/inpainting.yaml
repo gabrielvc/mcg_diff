@@ -1,0 +1,5 @@
+name: inpainting
+center: [0.5, 0.5]
+width: 0.3
+height: 0.3
+sigma_y: 0

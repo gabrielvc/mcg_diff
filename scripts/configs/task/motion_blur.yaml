@@ -1,0 +1,3 @@
+name: motion_blur
+sigma_y: 0.1
+kernel_size: 0.2
