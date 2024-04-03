@@ -6,7 +6,7 @@ defaults:
   - task: super_resolution
 
 save_folder: /mnt/data/gabriel/mcg_diff/images
-seed: 30
+seed: 10
 plot: true
 save_fig: false
 save_data: false
