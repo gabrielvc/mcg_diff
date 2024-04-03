@@ -27,6 +27,7 @@ def display_sample(sample):
     fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
     return fig
 
+
 def display_black_and_white(img):
     fig, ax = plt.subplots(1, 1, figsize=(5, 5))
     fig.subplots_adjust(top=1, bottom=0, left=0, right=1)

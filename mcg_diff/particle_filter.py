@@ -33,8 +33,8 @@ def predict(score_model: ScoreModel,
     return mean, noise, epsilon_predicted
 
 
-def gauss_loglik(x, mean, diag_var):
-    return - 1/2 * (torch.linalg.norm((x - mean[None, :]) / diag_var[None]**.5, dim=-1)**2)
+def gauss_loglik(x, mean, diag_std):
+    return - 1/2 * (torch.linalg.norm((x - mean[None, :]) / diag_std[None].clip(1e-10, 1e10), dim=-1)**2)
 
 
 def mcg_diff(
@@ -64,7 +64,6 @@ def mcg_diff(
     :return: Samples and Log weights.
     '''
     #Initialization
-
     n_particles, dim = initial_particles.shape
     alphas_cumprod = score_model.alphas_cumprod.to(initial_particles.device)
     particles = initial_particles
@@ -80,6 +79,7 @@ def mcg_diff(
     #Splitting timesteps at after Tau_1 and before tau_1
     filtering_timesteps = timesteps[taus_indices.min().item():]
     propagation_timesteps = timesteps[:taus_indices.min().item()+1]
+
     pbar = enumerate(zip(filtering_timesteps.tolist()[1:][::-1],
                          filtering_timesteps.tolist()[:-1][::-1]))
 
@@ -98,23 +98,22 @@ def mcg_diff(
         previous_log_likelihood = gauss_loglik(
             x=particles[:, previously_active_coordinates],
             mean=rescaled_observations[previously_active_coordinates] * (alphas_cumprod[t] / alphas_cumprod[taus[previously_active_coordinates]])**.5,
-            diag_var=1 - (1 - gaussian_var) * (alphas_cumprod[t] / alphas_cumprod[taus[previously_active_coordinates]]))
+            diag_std=(1 - (1 - gaussian_var) * (alphas_cumprod[t] / alphas_cumprod[taus[previously_active_coordinates]]))**.5)
         log_integration_constant = gauss_loglik(
             x=predicted_mean[:, active_coordinates],
-            mean=rescaled_observations[active_coordinates] * (alphas_cumprod[t_prev] / alphas_cumprod[taus[active_coordinates]])**.5,
-            diag_var=(predicted_noise ** 2 + 1 - (1 - gaussian_var)*(alphas_cumprod[t_prev] / alphas_cumprod[taus[active_coordinates]]))
+            mean=rescaled_observations[active_coordinates] * ((alphas_cumprod[t_prev] / alphas_cumprod[taus[active_coordinates]])**.5),
+            diag_std=(predicted_noise ** 2 + 1 - (1 - gaussian_var)*(alphas_cumprod[t_prev] / alphas_cumprod[taus[active_coordinates]]))**.5
         )
         log_weights = log_integration_constant - previous_log_likelihood
 
         #Ancestor sampling
         ancestors = Categorical(logits=log_weights, validate_args=False).sample((n_particles,))
-
         #Update
         z = torch.randn_like(particles)
-        Kprev = predicted_noise**2 / (predicted_noise**2 + 1 - (1 - gaussian_var)*(alphas_cumprod[t_prev] / alphas_cumprod[taus[active_coordinates]]))
+        Kprev = (predicted_noise**2 / (predicted_noise**2 + 1 - (1 - gaussian_var)*(alphas_cumprod[t_prev] / alphas_cumprod[taus[active_coordinates]])).clip(1e-10, 1e10))
         new_particles = particles.clone()
         new_particles[:, inactive_coordinates] = z[:, inactive_coordinates] * predicted_noise + predicted_mean[ancestors][:, inactive_coordinates]
-        new_particles[:, active_coordinates] = Kprev * rescaled_observations[active_coordinates][None,:] * (alphas_cumprod[t_prev] / alphas_cumprod[taus[active_coordinates]])**.5 + \
+        new_particles[:, active_coordinates] = Kprev * rescaled_observations[active_coordinates][None,:] * ((alphas_cumprod[t_prev] / alphas_cumprod[taus[active_coordinates]])**.5) + \
                                    (1 - Kprev)*predicted_mean[ancestors][:, active_coordinates] + \
                                    ((1 - (1 - gaussian_var)*(alphas_cumprod[t_prev] / alphas_cumprod[taus[active_coordinates]]))*Kprev)**.5 * z[:, active_coordinates]
 
@@ -126,8 +125,7 @@ def mcg_diff(
         x=particles[:, previously_active_coordinates],
         mean=rescaled_observations[previously_active_coordinates] * (
                 alphas_cumprod[t] / alphas_cumprod[taus[previously_active_coordinates]]) ** .5,
-        diag_var=1 - (1 - gaussian_var) * (alphas_cumprod[t] / alphas_cumprod[taus[previously_active_coordinates]]))
-
+        diag_std=(1 - (1 - gaussian_var) * (alphas_cumprod[t] / alphas_cumprod[taus[previously_active_coordinates]]))**.5)
     if len(propagation_timesteps) > 1:
         # If Tau_1 > 0 we still have to propagate using the diffusion between tau_1 and 0
         pbar = enumerate(zip(propagation_timesteps.tolist()[1:][::-1],
@@ -142,9 +140,9 @@ def mcg_diff(
                                                            n_samples_per_gpu=n_samples_per_gpu_inference)
             z = torch.randn_like(particles)
             particles = z * predicted_noise + predicted_mean
-        log_likelihood = gauss_loglik(x=likelihood_diagonal[None, :]*particles[:, coordinates_mask],
+        log_likelihood = gauss_loglik(x=likelihood_diagonal[None, :]*particles[:, coordinates_in_state],
                                       mean=observation,
-                                      diag_var=torch.ones_like(observation)*var_observation)
+                                      diag_std=(torch.ones_like(observation)*var_observation)**.5)
         log_weights = log_likelihood - previous_log_likelihood
     else:
         log_weights = -previous_log_likelihood

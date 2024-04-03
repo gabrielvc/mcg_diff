@@ -86,7 +86,7 @@ def generate_measurement_equations(dim, dim_y, mixt):
     init_obs += torch.randn_like(init_obs) * std
     return A, var_observations, init_obs
 
-random_state=0
+random_state = 10
 n_samples = 100
 dims = (1, 8)
 torch.manual_seed(random_state)
@@ -106,25 +106,25 @@ ou_mixt_fun = partial(ou_mixt,
 mixt = ou_mixt_fun(1)
 
 A, var_observations, init_obs = generate_measurement_equations(dim_x, dim_y, mixt)
-posterior = get_posterior(init_obs, mixt, A, torch.eye(dim_y) * var_observations)
+posterior = get_posterior(init_obs, mixt, A, torch.eye(dim_y)*var_observations)
 target_samples = posterior.sample((n_samples,))
 betas = torch.linspace(.02, 1e-4, steps=999)
 alphas_cumprod = torch.cumprod(torch.tensor([1, ] + [1 - beta for beta in betas]), dim=0)
 
 
-observation=init_obs
-forward_operator=A
-observation_noise=var_observations
-score_network=lambda x, alpha_t: torch.func.grad(lambda y: ou_mixt_fun(alpha_t).log_prob(y).sum())(x)
-reference_samples=target_samples
-alphas_cumprod=alphas_cumprod
+observation = init_obs
+forward_operator = A
+observation_noise = var_observations
+score_network = lambda x, alpha_t: torch.func.grad(lambda y: ou_mixt_fun(alpha_t).log_prob(y).sum())(x)
+reference_samples = target_samples
+alphas_cumprod = alphas_cumprod
 
 u, diag, coordinate_mask, v = build_extended_svd(forward_operator)
 score_model = ScoreModel(NetReparametrized(
-    base_score_module=lambda x, t: -((1 - alphas_cumprod[t]) ** .5) * score_network(x, alphas_cumprod[t]),
+    base_score_module=lambda x, t: - score_network(x, alphas_cumprod[t]) * ((1 - alphas_cumprod[t]) ** .5),
     orthogonal_transformation=v),
-                         alphas_cumprod=alphas_cumprod,
-                         device='cpu')
+    alphas_cumprod=alphas_cumprod,
+    device='cpu')
 
 n_steps = 100
 adapted_timesteps = get_optimal_timesteps_from_singular_values(alphas_cumprod=alphas_cumprod,
@@ -135,7 +135,7 @@ adapted_timesteps = get_optimal_timesteps_from_singular_values(alphas_cumprod=al
 
 
 def mcg_diff_fun(initial_samples):
-    samples, log_weights = mcg_diff(
+    samples, log_weights, all_particles= mcg_diff(
         initial_particles=initial_samples,
         observation=(u.T @ observation),
         score_model=score_model,
@@ -144,16 +144,25 @@ def mcg_diff_fun(initial_samples):
         var_observation=observation_noise,
         timesteps=adapted_timesteps,
         eta=1,
-        gaussian_var=1e-6,
+        gaussian_var=1e-8,
     )
+    print(log_weights)
     return v.T @ \
-        samples[torch.distributions.Categorical(logits=log_weights, validate_args=False).sample(sample_shape=(1,))][0]
+        samples[torch.distributions.Categorical(logits=log_weights, validate_args=False).sample(sample_shape=(1,))][0], all_particles
 
 
 sampler = mcg_diff_fun
 dim_y, dim_x = forward_operator.shape
 n_samples = n_samples
 
-n_particles = 32
+n_particles = 256
 initial_samples = torch.randn(size=(n_samples, n_particles, dim_x))
-samples = torch.func.vmap(sampler, in_dims=(0,), randomness='different')(initial_samples)
+samples, all_particles = torch.func.vmap(sampler, in_dims=(0,), randomness='different')(initial_samples)
+
+import matplotlib.pyplot as plt
+plt.scatter(*samples[:, :2].T, label="mcg_diff")
+plt.scatter(*reference_samples[:, :2].T, label="Posterior")
+plt.xlim(-20, 20)
+plt.ylim(-20, 20)
+plt.legend()
+plt.show()

@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - dataset: cifar_10
+  - dataset: celeb
   - diffusion: ddim_100
   - mcg_diff: default
   - task: super_resolution
