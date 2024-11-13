@@ -42,7 +42,7 @@ def mcg_diff(
         observation: torch.Tensor,
         score_model: ScoreModel,
         coordinates_mask: torch.Tensor,
-        timesteps: List[int],
+        timesteps: torch.Tensor,
         likelihood_diagonal: torch.Tensor,
         var_observation: float,
         eta: float = 1,

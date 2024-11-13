@@ -87,7 +87,7 @@ def generate_measurement_equations(dim, dim_y, mixt):
     return A, var_observations, init_obs
 
 random_state = 10
-n_samples = 100
+n_samples = 1000
 dims = (1, 8)
 torch.manual_seed(random_state)
 n_samples = n_samples
@@ -135,7 +135,7 @@ adapted_timesteps = get_optimal_timesteps_from_singular_values(alphas_cumprod=al
 
 
 def mcg_diff_fun(initial_samples):
-    samples, log_weights, all_particles= mcg_diff(
+    samples, log_weights = mcg_diff(
         initial_particles=initial_samples,
         observation=(u.T @ observation),
         score_model=score_model,
@@ -148,20 +148,21 @@ def mcg_diff_fun(initial_samples):
     )
     print(log_weights)
     return v.T @ \
-        samples[torch.distributions.Categorical(logits=log_weights, validate_args=False).sample(sample_shape=(1,))][0], all_particles
+        samples[torch.distributions.Categorical(logits=log_weights, validate_args=False).sample(sample_shape=(1,))][0]
 
 
 sampler = mcg_diff_fun
 dim_y, dim_x = forward_operator.shape
 n_samples = n_samples
 
-n_particles = 256
+n_particles = 128
 initial_samples = torch.randn(size=(n_samples, n_particles, dim_x))
-samples, all_particles = torch.func.vmap(sampler, in_dims=(0,), randomness='different')(initial_samples)
+samples = torch.func.vmap(sampler, in_dims=(0,), randomness='different')(initial_samples)
+reference_samples = posterior.sample((n_samples,))
 
 import matplotlib.pyplot as plt
-plt.scatter(*samples[:, :2].T, label="mcg_diff")
-plt.scatter(*reference_samples[:, :2].T, label="Posterior")
+plt.scatter(*reference_samples[:, :2].T, label="Posterior", alpha=.3)
+plt.scatter(*samples[:, :2].T, label="mcg_diff", alpha=.4)
 plt.xlim(-20, 20)
 plt.ylim(-20, 20)
 plt.legend()
